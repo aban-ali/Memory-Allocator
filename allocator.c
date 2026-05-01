@@ -1,4 +1,5 @@
 #include "allocator.h"
+#include <stdio.h>
 
 static char memory_pool[MEMORY_SIZE];
 static block_t* free_list = NULL;
@@ -9,13 +10,6 @@ void init_allocator(){
     free_list->free = 1;
     free_list->next = NULL;
 }
-
-// void init_block(block_t* block){
-//     block->free = 1;
-//     block->next = NULL;
-//     block->size = MEMORY_SIZE - (free_list - block) - sizeof(block_t);
-//     return;
-// }
 
 
 void* my_malloc(size_t size){
@@ -33,12 +27,15 @@ void* my_malloc(size_t size){
 
                 curr->size = size;
                 curr->next = block;
+                // printf("Memory LEFT : %lu\n", block->size);
             }
             curr->free = 0;
+            // printf("Space Allocated\n");
             return (void*)(curr + 1);
         }
         curr = curr->next;
     }
+    // printf("No space is there of size: %lu....\n", size);
     return NULL;
 }
 
@@ -48,10 +45,26 @@ void my_free(void* ptr){
 
     block_t* block = (block_t*)ptr - 1;
     block->free = 1;
-    block_t* curr = block->next;
-    while(curr && curr->free){
-        block->size += curr->size + sizeof(block_t);
-        block->next = curr->next;
+    block_t* curr = free_list;
+    block_t* prev = NULL;
+    
+    //finding the previous block wrt current one.
+    while(curr && curr != block){
+        prev = curr;
         curr = curr->next;
+    }
+
+    // if previous block is free then coalescing memory
+    if(prev && prev->free){
+        prev->size += sizeof(block_t) + block->size;
+        prev->next = block->next;
+        block = prev;
+    }
+
+    block_t* next = block->next;
+    while(next && next->free){
+        block->size += sizeof(block_t) + next->size;
+        block->next = next->next;
+        next = block->next;
     }
 }
